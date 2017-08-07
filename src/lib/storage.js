@@ -2,89 +2,56 @@ import {
   AsyncStorage
 } from "react-native"
 
-const SCHOOLS_KEY = "@MyGrades/schools"
-const COURSES_KEY = "@MyGrades/courses"
-const DEFAULT_SCHOOL_KEY = "@MyGrades/defaultSchool"
+
+listeners = new Object();
+
 
 export default {
-  getSchools () {
-    return this._getCollection(SCHOOLS_KEY)
+  addListener (key, fn, fallback) {
+    listeners[key] = (listeners[key] || []).concat(fn)
+
+    this
+      .get(key, fallback)
+      .then((v) => fn(v));
   },
 
-  setSchools (schools) {
-    return this._setCollection(SCHOOLS_KEY, schools)
-      .then(() => {
-        return this.getDefaultSchool()
-      })
-      .then((defaultSchool) => {
-        school = schools.find((s) => s.id == defaultSchool)
-        if (school) {
-          return Promise.resolve()
-        } else {
-          return this.setDefaultSchool(null)
-        }
-      })
+
+  removeListener (key, fn) {
+    listeners = listeners || { [key]: [] };
+    listeners[key] = listeners[key].filter((method) => method != fn);
   },
 
-  getCourses () {
-    return this._getCollection(COURSES_KEY)
-  },
 
-  setCourses (courses) {
-    return this._setCollection(COURSES_KEY, courses)
-  },
+  set (key, value) {
+    const callbacks = listeners[key] || []
 
-  getDefaultSchool () {
     return new Promise((resolve, reject) => {
-      AsyncStorage.getItem(DEFAULT_SCHOOL_KEY, (err, result) => {
+      AsyncStorage.setItem(key, JSON.stringify(value), (err) => {
+        for (let cb of callbacks) {
+          cb(value)
+        }
+
         if (err) {
           reject(err)
         } else {
-          try {
+          resolve(value)
+        }
+      })
+    })
+  },
+
+
+  get (key, fallback) {
+    return new Promise((resolve, reject) => {
+      AsyncStorage.getItem(key, (err, result) => {
+        if (err) {
+          reject(err)
+        } else {
+          if (result) {
             resolve(JSON.parse(result))
-          } catch (e) {
-            resolve(null)
+          } else {
+            resolve(fallback)
           }
-        }
-      })
-    })
-  },
-
-  setDefaultSchool (defaultSchool) {
-    return new Promise((resolve, reject) => {
-      AsyncStorage.setItem(DEFAULT_SCHOOL_KEY, JSON.stringify(defaultSchool), (err, result) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve()
-        }
-      })
-    })
-  },
-
-  _getCollection (name) {
-    return new Promise((resolve, reject) => {
-      AsyncStorage.getItem(name, (err, result) => {
-        if (err) {
-          reject(err)
-        } else {
-          try {
-            resolve(JSON.parse(result))
-          } catch (e) {
-            resolve([])
-          }
-        }
-      })
-    })
-  },
-
-  _setCollection (name, collection) {
-    return new Promise((resolve, reject) => {
-      AsyncStorage.setItem(name, JSON.stringify(collection), (err) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve()
         }
       })
     })

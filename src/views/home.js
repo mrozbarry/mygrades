@@ -1,99 +1,157 @@
 import React, { Component } from 'react'
 import PropTypes from "prop-types"
 import {
-  AppRegistry,
   Text,
   View,
-  SectionList
+  FlatList,
+  Button,
+  StyleSheet,
+  TouchableHighlight
 } from 'react-native'
+import Swipeable from "react-native-swipeable"
 import Storage from "../lib/storage.js"
 
+
 export default class Home extends Component {
+  static navigationOptions = ({ navigation }) => ({
+    title: "My Grades",
+    headerRight: (
+      <Button
+        title="Add School"
+        onPress={() => navigation.navigate("AddSchool")}
+        />
+    )
+  })
+
+
   constructor (props) {
     super(props)
 
     this.state = {
       schools: [],
-      courses: []
+      courses: [],
+      schoolsPendingDelete: []
     }
+
   }
+
 
   componentDidMount () {
-    this.getInitialData()
+    Storage.addListener("@MyGrades/schools", this.schoolsChanged.bind(this), [])
+    Storage.addListener("@MyGrades/courses", this.coursesChanged.bind(this), [])
   }
 
-  async getInitialData () {
-    const schools = (await Storage.getSchools())
-    const courses = (await Storage.getCourses())
 
+  componentWillUnmount () {
+    Storage.removeListener("@MyGrades/schools", this.schoolsChanged)
+    Storage.removeListener("@MyGrades/courses", this.coursesChanged)
+  }
+
+
+  schoolsChanged (schools) {
+    this.setState({ schools: schools })
+  }
+
+
+  coursesChanged (courses) {
+    this.setState({ courses: courses })
+  }
+
+
+  onSwipeRight (school) {
     this.setState({
-      schools: schools || [],
-      courses: courses || []
+      schoolsPendingDelete: this.state.schoolsPendingDelete.concat(school.id)
     })
   }
 
-  getSections () {
-    unassignedCourses =
-      this.state.courses.filter((c) => !c.schoolId || c.schoolId == "")
-    unassigned =
-      unassignedCourses.length > 0 ?
-      [ { data: unassignedCourses, key: "unassigned", title: "---" } ] :
-      []
 
+  onSwipeRightComplete (school) {
+    if (this.state.schoolsPendingDelete.indexOf(school.id) >= 0) {
+      const schoolsPendingDelete = this.state.schoolsPendingDelete.filter((id) => id != school.id)
+      const schools = this.state.schools.filter((s) => s.id != school.id)
 
-    sections = unassigned.concat(
-      courses =
-        this.
-          state.
-          courses.
-          filter((course) => course.schoolId == school.id).
-          sort((a, b) => a.updatedAt - b.updatedAt),
+      this.setState({
+        schoolsPendingDelete: schoolsPendingDelete
+      }, () => {
 
-      this.state.schools.map((school) => {
-        return {
-          data: courses,
-          key: school.id,
-          title: school.name
-        }
+        Storage
+          .set("@MyGrades/schools", schools)
       })
-    )
-
-    return sections
+    }
   }
 
+
   render () {
+    const schools = this.state.schools
+
     return (
-      <SectionList
-        style={{ flex: 1, backgroundColor: "#efefef" }}
-        sections={this.getSections()}
-        renderSectionHeader={this.renderHeader.bind(this)}
+      <FlatList
+        style={{ flex: 1, margin: 8 }}
+        data={schools}
         renderItem={this.renderItem.bind(this)}
+        keyExtractor={(item, idx) => item.id}
         />
     )
   }
 
-  renderHeader ({ section }) {
-    return (
-      <Text style={{ fontSize: 18 }}>{section.title}</Text>
-    )
-  }
 
   renderItem (item) {
+    const school = item.item
+    const courses = this.state.courses.filter((course) => {
+      return course.schoolId == school.id
+    })
+
     return (
-      <TouchableHighlight
-        style={{ flex: 1 }}
-        // onPress={}
-        // onLongPress={}
+      <Swipeable
+        style={{
+          borderBottomWidth: StyleSheet.hairlineWidth,
+          borderBottomColor: "#EEE",
+          marginBottom: 4,
+          backgroundColor: "#FFF",
+          flex: 1
+        }}
+        rightContainerStyle={{ backgroundColor: "#F00" }}
+        rightContent={<View style={{ flex: 1, alignItems: "flex-start", justifyContent: "center", paddingLeft: 20 }}><Text>Delete</Text></View>}
+        onRightActionRelease={this.onSwipeRight.bind(this, school)}
+        onRightActionComplete={this.onSwipeRightComplete.bind(this, school)}
+        rightActionActivationDistance={150}
+      >
+        <TouchableHighlight
+          onPress={() => this.props.navigation.navigate("ShowSchool", { schoolId: school.id })}
+          style={{
+            flex: 1
+          }}
+          underlayColor="#007AFF"
         >
-        <View style={{ flex: 1 }}>
-          <Text>Section item</Text>
-        </View>
-      </TouchableHighlight>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "flex-start",
+              padding: 8
+            }}
+          >
+            <View
+              style={{
+                flexDirection: "column",
+                alignItems: "flex-start",
+                justifyContent: "center",
+                padding: 8,
+                width: 200
+              }}
+            >
+              <Text style={{ fontSize: 16 }}>{school.name}</Text>
+              <Text>{courses.length || 5} Courses</Text>
+            </View>
+            <Text style={{ width: 100  }}>12.0</Text>
+            <Text style={{ width: 100  }}>A+</Text>
+          </View>
+        </TouchableHighlight>
+      </Swipeable>
     )
   }
 }
 
 Home.propTypes = {
-  navigator: PropTypes.any.isRequired,
-  update: PropTypes.func.isRequired
+  navigation: PropTypes.any.isRequired
 }

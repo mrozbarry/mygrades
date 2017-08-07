@@ -35,7 +35,22 @@ export default {
       return {
         id: uuid(),
         name: "",
-        maxGpa: 4.0
+        maxGpa: "4.0",
+        grades: {
+          "a+": "90",
+          "a": "85",
+          "a-": "80",
+          "b+": "77",
+          "b": "73",
+          "b-": "70",
+          "c+": "67",
+          "c": "65",
+          "c-": "60",
+          "d+": "57",
+          "d": "53",
+          "d-": "50",
+          "f": "0",
+        }
       }
     }
   },
@@ -48,6 +63,7 @@ export default {
         schoolId: school ? school.id : null,
         name: "",
         professor: "",
+        credits: 0.5,
         assignments: []
       }
     }
@@ -59,6 +75,7 @@ export default {
       return {
         id: uuid(),
         name: "",
+        due: (Date.now()),
         percentage: null,
         weight: 0
       }
